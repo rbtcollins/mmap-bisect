@@ -11,8 +11,10 @@ use rayon::iter::{
 
 use clap::Parser;
 
+use mmap_btree::Entry;
+
 /// Create a data file for benchmarking with. The output file will be called
-/// output.sst.
+/// output.sst. The file may have duplicate entries, but will be sorted.
 #[derive(Parser)]
 #[command(version, about)]
 struct Cli {
@@ -29,11 +31,6 @@ struct Cli {
     validate: bool,
 }
 
-/// Not worrying about network byte order, this test just uses native order
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(transparent)]
-struct Entry(u32);
-
 fn main() -> Result<()> {
     let cli = Cli::parse();
     // make the directory if it doesn't exist
@@ -49,21 +46,21 @@ fn main() -> Result<()> {
         let needed_entries_per_segment = cli.size / pool.current_num_threads();
         // spread the data equally per segment : segment n gets values from a range of width 0..2^32/n.
         let stride = MAX / pool.current_num_threads() as u32;
-        let mut output = vec![];
+        let mut output: Vec<Vec<Entry>> = vec![];
         for t in 0..pool.current_num_threads() {
             let min = t as u32 * stride;
             // little ugly, but convenient
-            output.push(vec![Entry(min)]);
+            output.push(vec![min.into()]);
         }
         output.par_iter_mut().for_each(|output| {
-            let min = output.last().unwrap().0;
+            let min: u32 = output.last().unwrap().into();
             let max = min + stride;
             let range = min..max;
             let mut segment = Vec::with_capacity(needed_entries_per_segment);
             // setup a random number generator
             let mut rnd = rand::thread_rng();
             for _ in 0..needed_entries_per_segment {
-                segment.push(Entry(rnd.gen_range(range.clone())));
+                segment.push(rnd.gen_range(range.clone()).into());
             }
             segment.sort();
             // save the segment in our output slot
@@ -102,7 +99,7 @@ fn main() -> Result<()> {
             .par_iter()
             .enumerate()
             .try_fold(
-                || Entry(0),
+                || 0.into(),
                 |prev, (pos, current)| {
                     if prev > *current {
                         Err(eyre::eyre!("out of order at entry {pos}"))
@@ -112,7 +109,7 @@ fn main() -> Result<()> {
                 },
             )
             .try_reduce(
-                || Entry(0),
+                || 0.into(),
                 |prev, current| {
                     if prev > current {
                         Err(eyre::eyre!("out of order in reduce"))
