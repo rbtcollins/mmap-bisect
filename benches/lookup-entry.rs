@@ -1,7 +1,7 @@
 use std::fs::OpenOptions;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use mmap_btree::SST;
+use mmap_bisect::SST;
 use rand::Rng;
 
 /// Benches lookups in a SST file at data/output.sst

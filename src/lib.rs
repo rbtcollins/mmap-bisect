@@ -42,12 +42,7 @@ impl SST {
             file_size % 4 == 0,
             "file size is not a multiple of 4, cannot be a u32 array",
         );
-        let map = unsafe {
-            MmapOptions::new(file_size as usize)
-                .unwrap()
-                .with_file(&file, 0)
-        }
-        .map()?;
+        let map = unsafe { MmapOptions::new(file_size).unwrap().with_file(&file, 0) }.map()?;
         assert_eq!(file_size, map.len());
         Ok(Self { file, map })
     }

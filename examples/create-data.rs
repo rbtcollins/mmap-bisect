@@ -1,5 +1,5 @@
 use std::{fs::OpenOptions, io::Write};
-use std::{path::PathBuf, slice::from_raw_parts, u32::MAX};
+use std::{path::PathBuf, slice::from_raw_parts};
 
 use eyre::Result;
 use mmap_rs::MmapOptions;
@@ -11,7 +11,7 @@ use rayon::iter::{
 
 use clap::Parser;
 
-use mmap_btree::Entry;
+use mmap_bisect::Entry;
 
 /// Create a data file for benchmarking with. The output file will be called
 /// output.sst. The file may have duplicate entries, but will be sorted.
@@ -45,7 +45,7 @@ fn main() -> Result<()> {
         // one nth per thread
         let needed_entries_per_segment = cli.size / pool.current_num_threads();
         // spread the data equally per segment : segment n gets values from a range of width 0..2^32/n.
-        let stride = MAX / pool.current_num_threads() as u32;
+        let stride = u32::MAX / pool.current_num_threads() as u32;
         let mut output: Vec<Vec<Entry>> = vec![];
         for t in 0..pool.current_num_threads() {
             let min = t as u32 * stride;
